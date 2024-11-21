@@ -14,9 +14,26 @@ app.get('/', (req, res) => {
 });
 
 // Trae todas las reservas
-app.get('/all-bookings', async (req, res) => {
+app.get('/bookings', async (req, res) => {
   try {
     const response = await axios.get('https://api.avantio.pro/pms/v2/bookings', {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Avantio-Auth': process.env.AVANTIO_AUTH_TOKEN,
+      },
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error(error.message);
+    res.status(error.response?.status || 500).send(error.message);
+  }
+});
+
+// Trae reserva por ID
+app.get('/bookings/:id', async (req, res) => {
+  const {id} = req.params;
+  try {
+    const response = await axios.get(`https://api.avantio.pro/pms/v2/bookings/${id}`, {
       headers: {
         'Content-Type': 'application/json',
         'X-Avantio-Auth': process.env.AVANTIO_AUTH_TOKEN,
