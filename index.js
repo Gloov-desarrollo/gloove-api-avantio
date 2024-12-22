@@ -46,6 +46,24 @@ app.get('/bookings/:id', async (req, res) => {
   }
 });
 
+// Trae reserva por ID
+app.get('/accommodations/{id}', async (req, res) => {
+  const {id} = req.params;
+  try {
+    const response = await axios.get(`https://api.avantio.pro/pms/v2/accommodations/${id}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Avantio-Auth': process.env.AVANTIO_AUTH_TOKEN,
+      },
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error(error.message);
+    res.status(error.response?.status || 500).send(error.message);
+  }
+});
+
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
