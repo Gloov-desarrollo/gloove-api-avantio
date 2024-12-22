@@ -22,6 +22,7 @@ app.get('/bookings', async (req, res) => {
         'X-Avantio-Auth': process.env.AVANTIO_AUTH_TOKEN,
       },
     });
+    console.log("TOKEN: ", process.env.AVANTIO_AUTH_TOKEN)
     res.json(response.data);
   } catch (error) {
     console.error(error.message);
