@@ -25,6 +25,7 @@ app.get('/bookings', async (req, res) => {
     console.log("TOKEN: ", process.env.AVANTIO_AUTH_TOKEN)
     res.json(response.data);
   } catch (error) {
+    console.log("TOKEN: ", process.env.AVANTIO_AUTH_TOKEN)
     console.error(error.message);
     res.status(error.response?.status || 500).send(error.message);
   }
