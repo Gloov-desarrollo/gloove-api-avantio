@@ -88,7 +88,7 @@ app.get('/huesped/:id', async (req, res) => {
 app.get("/viviendas-json", async (req, res) => {
   try {
     // leo xml
-    const xmlFilePath = "./descriptions.xml"; 
+    const xmlFilePath = "./public/descriptions.xml"; 
     const xmlData = fs.readFileSync(xmlFilePath, "utf-8");
 
     // convierto a json
