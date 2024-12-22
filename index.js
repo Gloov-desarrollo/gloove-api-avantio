@@ -85,22 +85,22 @@ app.get('/huesped/:id', async (req, res) => {
 });
 
 // Convierto XML de viviendas (descriptions.xml) a JSON
-app.get("/viviendas-json", async (req, res) => {
-  try {
-    // leo xml
-    const xmlFilePath = path.join(__dirname, "assets/descriptions.xml");
-    const xmlData = fs.readFileSync(xmlFilePath, "utf-8");
+// app.get("/viviendas-json", async (req, res) => {
+//   try {
+//     // leo xml
+//     const xmlFilePath = path.join(__dirname, "assets/descriptions.xml");
+//     const xmlData = fs.readFileSync(xmlFilePath, "utf-8");
 
-    // convierto a json
-    const parser = new xml2js.Parser();
-    const jsonData = await parser.parseStringPromise(xmlData);
+//     // convierto a json
+//     const parser = new xml2js.Parser();
+//     const jsonData = await parser.parseStringPromise(xmlData);
 
-    res.json(jsonData);
-  } catch (error) {
-    console.error("Error processing XML:", error);
-    res.status(500).json({ error: "Failed to process XML file" });
-  }
-});
+//     res.json(jsonData);
+//   } catch (error) {
+//     console.error("Error processing XML:", error);
+//     res.status(500).json({ error: "Failed to process XML file" });
+//   }
+// });
 
 
 app.listen(PORT, () => {
