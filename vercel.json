@@ -7,8 +7,16 @@
     ],
     "routes": [
         {
-            "src": "/(.*)",
-            "dest": "/"
+            "src": "/viviendas-json",
+            "dest": "/index.js"
+        },
+        {
+            "src": "/assets/(.*)",
+            "dest": "/assets/$1"
         }
-    ]
+    ],
+    "static": {
+        "public": "public",
+        "assets": "assets"
+    }
 }
