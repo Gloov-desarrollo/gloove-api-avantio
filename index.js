@@ -49,7 +49,7 @@ app.get('/bookings/:id', async (req, res) => {
 });
 
 // Trae reserva por ID
-app.get('/accommodations/{id}', async (req, res) => {
+app.get('/accommodations/:id', async (req, res) => {
   const {id} = req.params;
   try {
     const response = await axios.get(`https://api.avantio.pro/pms/v2/accommodations/${id}`, {
