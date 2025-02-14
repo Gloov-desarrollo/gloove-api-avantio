@@ -1,3 +1,5 @@
+const AvantioService = require('./avantioService');
+
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -9,6 +11,9 @@ const cors = require('cors');
 app.use(cors()); 
 
 app.use(express.json());
+
+//inicializo avantioService
+const avantioService = new AvantioService();
 
 // Routes
 app.get('/', (req, res) => {
@@ -80,6 +85,16 @@ app.get('/huesped/:id', async (req, res) => {
     res.json(response.data);
   } catch (error) {
     console.error(error.message);
+    res.status(error.response?.status || 500).send(error.message);
+  }
+});
+
+app.post('/set-booking', async (req, res) => {
+  try {
+      const data = req.body;
+      const result = await avantioService.setBooking(data);
+      res.json(result);
+  } catch (error) {
     res.status(error.response?.status || 500).send(error.message);
   }
 });
