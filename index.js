@@ -99,6 +99,18 @@ app.post('/set-booking', async (req, res) => {
   }
 });
 
+
+// app.get('/get-accommodations', async (req, res) => {
+//   try {
+//       const data = req.body;
+//       const result = await avantioService.getAccommodations();
+//       // console.log("Result");
+//       res.json(result);
+//   } catch (error) {
+//     res.status(error.response?.status || 500).send(error.message);
+//   }
+// });
+
 // Convierto XML de viviendas (descriptions.xml) a JSON
 // app.get("/viviendas-json", async (req, res) => {
 //   try {
