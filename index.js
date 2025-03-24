@@ -3,6 +3,7 @@ const AvantioService = require('./avantioService');
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 5001;
+const AVANTIO_AUTH_TOKEN = process.env.AVANTIO_AUTH_TOKEN;
 const axios = require('axios');
 require('dotenv').config();
 const fs = require("fs");
@@ -99,35 +100,58 @@ app.post('/set-booking', async (req, res) => {
   }
 });
 
+//Funcion para traer info adicional de cada alojamiento
+const fetchAdditionalData = async (links) => {
 
-// app.get('/get-accommodations', async (req, res) => {
-//   try {
-//       const data = req.body;
-//       const result = await avantioService.getAccommodations();
-//       // console.log("Result");
-//       res.json(result);
-//   } catch (error) {
-//     res.status(error.response?.status || 500).send(error.message);
-//   }
-// });
+  try {
+    // Trae las 4 peticiones en paralelo 
+    const responses = await Promise.allSettled([
+      axios.get(links.self, { headers: { 'X-Avantio-Auth': AVANTIO_AUTH_TOKEN } }),
+      axios.get(links.availabilities, { headers: { 'X-Avantio-Auth': AVANTIO_AUTH_TOKEN } }),
+      axios.get(links.gallery, { headers: { 'X-Avantio-Auth': AVANTIO_AUTH_TOKEN } }),
+      axios.get(links.occupationRule, { headers: { 'X-Avantio-Auth': AVANTIO_AUTH_TOKEN } })
+    ]);
 
-// Convierto XML de viviendas (descriptions.xml) a JSON
-// app.get("/viviendas-json", async (req, res) => {
-//   try {
-//     // leo xml
-//     const xmlFilePath = path.join(__dirname, "assets/descriptions.xml");
-//     const xmlData = fs.readFileSync(xmlFilePath, "utf-8");
+    // Retorna un objeto con la info adicional de cada alojamiento 
+    return {
+      self: responses[0].status === "fulfilled" ? responses[0].value.data : null,
+      availabilities: responses[1].status === "fulfilled" ? responses[1].value.data : null,
+      gallery: responses[2].status === "fulfilled" ? responses[2].value.data : null,
+      occupationRule: responses[3].status === "fulfilled" ? responses[3].value.data : null,
+    };
 
-//     // convierto a json
-//     const parser = new xml2js.Parser();
-//     const jsonData = await parser.parseStringPromise(xmlData);
+  } catch (error) {
+    //console.error("Error fetching additional data:", error.message);
+    return { error: "Error fetching additional data" };
+  }
+};
 
-//     res.json(jsonData);
-//   } catch (error) {
-//     console.error("Error processing XML:", error);
-//     res.status(500).json({ error: "Failed to process XML file" });
-//   }
-// });
+// Treae los datos adicionales de los alojamientos
+app.get("/get-accommodations", async (req, res) => {
+
+  const API_BASE_URL = "https://api.avantio.pro/pms/v2/accommodations";
+
+  try {
+    // Consulta lista de alojamientos
+    const response = await axios.get(API_BASE_URL, {
+      headers: { 'X-Avantio-Auth': AVANTIO_AUTH_TOKEN }
+    });
+
+    // Desestructuro los datos
+    const accommodations = response.data.data; 
+
+    // Aca recorro cada alojamiento y le agrego la info adicional de la función fetchAdditionalData
+    const enrichedAccommodations = await Promise.all(accommodations.map(async (accommodation) => {
+      const additionalData = await fetchAdditionalData(accommodation._links);
+      return { ...accommodation, ...additionalData };
+    }));
+
+    res.json(enrichedAccommodations);
+  } catch (error) {
+    console.error("Error fetching accommodations:", error.message);
+    res.status(error.response?.status || 500).json({ error: "Error fetching accommodations" });
+  }
+});
 
 
 app.listen(PORT, () => {
