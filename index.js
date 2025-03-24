@@ -121,38 +121,47 @@ const fetchAdditionalData = async (links) => {
     };
 
   } catch (error) {
-    //console.error("Error fetching additional data:", error.message);
     return { error: "Error fetching additional data" };
   }
 };
 
 // Treae los datos adicionales de los alojamientos
 app.get("/get-accommodations", async (req, res) => {
-
   const API_BASE_URL = "https://api.avantio.pro/pms/v2/accommodations";
 
+  const paginationSize = parseInt(req.query.pagination_size) || 20; //Pagination por defecto en 20
+  if (paginationSize > 100) {
+    return res.status(400).json({ error: "Pagination size must be less than 100" });
+  }
+  if(paginationSize < 10){
+    return res.status(400).json({ error: "Pagination size must be greater than 10" });
+  }
   try {
     // Consulta lista de alojamientos
     const response = await axios.get(API_BASE_URL, {
-      headers: { 'X-Avantio-Auth': AVANTIO_AUTH_TOKEN }
+      headers: { 'X-Avantio-Auth': AVANTIO_AUTH_TOKEN },
+      params: { pagination_size: paginationSize }
     });
 
     // Desestructuro los datos
     const accommodations = response.data.data; 
 
-    // Aca recorro cada alojamiento y le agrego la info adicional de la función fetchAdditionalData
+    // recorro cada alojamiento y le agrego la info adicional de la función fetchAdditionalData
     const enrichedAccommodations = await Promise.all(accommodations.map(async (accommodation) => {
       const additionalData = await fetchAdditionalData(accommodation._links);
       return { ...accommodation, ...additionalData };
     }));
 
-    res.json(enrichedAccommodations);
+    res.json({
+      data: enrichedAccommodations,
+      pagination: {paginationSize}
+    });
+
   } catch (error) {
     console.error("Error fetching accommodations:", error.message);
     res.status(error.response?.status || 500).json({ error: "Error fetching accommodations" });
   }
 });
-
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
