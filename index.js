@@ -73,7 +73,7 @@ app.get('/accommodations/:id', async (req, res) => {
   }
 });
 
-// Trae info de un huesped
+//Trae info de un huesped
 app.get('/huesped/:id', async (req, res) => {
   const {id} = req.params;
   try {
@@ -86,16 +86,6 @@ app.get('/huesped/:id', async (req, res) => {
     res.json(response.data);
   } catch (error) {
     console.error(error.message);
-    res.status(error.response?.status || 500).send(error.message);
-  }
-});
-
-app.post('/set-booking', async (req, res) => {
-  try {
-      const data = req.body;
-      const result = await avantioService.setBooking(data);
-      res.json(result);
-  } catch (error) {
     res.status(error.response?.status || 500).send(error.message);
   }
 });
@@ -124,6 +114,57 @@ const fetchAdditionalData = async (links) => {
     return { error: "Error fetching additional data" };
   }
 };
+
+// Trae un alojamiento con datos adicionales
+app.get('/accommodations-add/:id', async (req, res) => {
+  const { id } = req.params;
+  const API_BASE_URL = `https://api.avantio.pro/pms/v2/accommodations/${id}`;
+
+  try {
+    // Consulta el alojamiento específico por ID
+    const response = await axios.get(API_BASE_URL, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Avantio-Auth': process.env.AVANTIO_AUTH_TOKEN,
+      },
+    });
+
+    const accommodation = response.data;
+
+    // Construye los enlaces adicionales
+    const links = {
+      self: `https://api.avantio.pro/pms/v2/accommodations/${id}`,
+      availabilities: `https://api.avantio.pro/pms/v2/accommodations/${id}/availabilities`,
+      gallery: `https://api.avantio.pro/pms/v2/accommodations/${id}/gallery`,
+      occupationRule: `https://api.avantio.pro/pms/v2/accommodations/${id}/occupationRule`
+    };
+
+    // Obtiene los datos adicionales utilizando esos enlaces
+    const additionalData = await fetchAdditionalData(links);
+
+    //Agrega los datos adicionales
+    const enrichedAccommodation = { ...accommodation, ...additionalData };
+
+    res.json(enrichedAccommodation);
+
+  } catch (error) {
+    console.error(error.message);
+    res.status(error.response?.status || 500).send(error.message);
+  }
+});
+
+
+app.post('/set-booking', async (req, res) => {
+  try {
+      const data = req.body;
+      const result = await avantioService.setBooking(data);
+      res.json(result);
+  } catch (error) {
+    res.status(error.response?.status || 500).send(error.message);
+  }
+});
+
+
 
 // Treae los datos adicionales de los alojamientos
 app.get("/get-accommodations", async (req, res) => {
