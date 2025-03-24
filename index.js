@@ -127,9 +127,9 @@ const fetchAdditionalData = async (links) => {
 
 // Treae los datos adicionales de los alojamientos
 app.get("/get-accommodations", async (req, res) => {
-  const API_BASE_URL = "https://api.avantio.pro/pms/v2/accommodations";
+  const API_BASE_URL = "https://api.avantio.pro/pms/v2/accommodations?status=ENABLED";
 
-  const paginationSize = parseInt(req.query.pagination_size) || 20; //Pagination por defecto en 20
+  const paginationSize = parseInt(req.query.pagination_size) || 20; 
   if (paginationSize > 100) {
     return res.status(400).json({ error: "Pagination size must be less than 100" });
   }
