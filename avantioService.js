@@ -18,42 +18,42 @@ class AvantioService {
         await this.initClient();
       
         const params = {
-          Credentials: {
-            Language: "ES", // O "EN" según lo que necesites
+          Credentials: { // Credentials no
+            Language: "ES", 
             UserName: process.env.AVANTIO_USERNAME,
             Password: process.env.AVANTIO_PASSWORD,
           },
           BookingData: {
-            ArrivalDate: data.arrival_date,       // Ej: "2021-07-17"
-            DepartureDate: data.departure_date,     // Ej: "2021-07-31"
+            ArrivalDate: data.arrival_date,
+            DepartureDate: data.departure_date,
             Accommodation: {
-              AccommodationCode: data.accommodation_id, // Ej: "59100"
-              UserCode: data.user_code,                // Ej: "76"
-              LoginGA: data.login_ga,                  // Ej: "lito212"
+              AccommodationCode: data.accommodation_id,
+              UserCode: "1673940555",                // Revisar este valor
+              LoginGA: process.env.AVANTIO_LOGINGA,           
             },
             Occupants: {
-              AdultsNumber: data.adults_number,        // Ej: 8
+              AdultsNumber: data.adults_number,
             },
             ClientData: {
-              Name: data.client_name,                  // "John"
-              Surname: data.client_surname,            // "Doe"
-              DNI: data.client_dni,                    // "32659754D"
-              Address: data.client_address,            // "Test Street"
-              Locality: data.client_locality,          // "Valencia"
-              PostCode: data.client_postcode,          // "46000"
-              City: data.client_city,                  // "Valencia"
-              Country: data.client_country,            // "ES"
-              ISOCountryCode: data.client_iso_country_code, // "ES"
-              Telephone: data.client_phone,            // "666666666"
-              Telephone2: data.client_phone2 || "-",   // En caso de no tenerlo
-              EMail: data.client_email,                // "johndoe@themorgue.com" (ojo con la M mayúscula)
+              Name: data.client_name,
+              Surname: data.client_surname, 
+              DNI: data.client_dni,
+              Address: data.client_address,
+              Locality: data.client_locality,
+              PostCode: data.client_postcode,
+              City: data.client_city,
+              Country: data.client_country,
+              ISOCountryCode: data.client_iso_country_code,
+              Telephone: data.client_phone,
+              Telephone2: data.client_phone2 || "-",
+              EMail: data.client_email,
               Fax: data.client_fax || "-",
               Language: data.client_language || "EN",
             },
-            PaymentMethod: data.payment_method,        // Ej: 1
-            BookingType: data.booking_type,            // Ej: "PAID"
-            SendMailToOrganization: data.send_mail_to_organization, // Ej: "FALSE"
-            SendMailToTourist: data.send_mail_to_tourist,           // Ej: "FALSE"
+            PaymentMethod: 1,
+            BookingType: "PAID",
+            SendMailToOrganization: "FALSE",
+            SendMailToTourist: "FALSE",
           }
         };
       
