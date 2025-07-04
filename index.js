@@ -164,8 +164,6 @@ app.post('/set-booking', async (req, res) => {
   }
 });
 
-
-
 // Treae los datos adicionales de los alojamientos
 app.get("/get-accommodations", async (req, res) => {
   const API_BASE_URL = "https://api.avantio.pro/pms/v2/accommodations?status=ENABLED";
@@ -201,6 +199,70 @@ app.get("/get-accommodations", async (req, res) => {
   } catch (error) {
     console.error("Error fetching accommodations:", error.message);
     res.status(error.response?.status || 500).json({ error: "Error fetching accommodations" });
+  }
+});
+
+// Crea un usuario customer en Avantio
+app.post('/create-customer', async (req, res) => {
+  const { name, surnames } = req.body;
+
+  if (!name || !surnames) {
+    return res.status(400).json({ error: 'El nombre y los apellidos son requeridos.' });
+  }
+
+  try {
+    const response = await axios.post(
+      'https://api.avantio.pro/pms/v2/customers',
+      {
+        language: 'es_ES',
+        name,
+        surnames: [surnames],
+      },
+      {
+        headers: {
+          'X-Avantio-Auth': process.env.AVANTIO_AUTH_TOKEN,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      }
+    );
+
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error al crear el customer en Avantio:', error.message);
+    res.status(error.response?.status || 500).json({ error: 'Error al crear el customer en Avantio' });
+  }
+});
+
+// Crea un Owner en Avantio
+app.post('/create-owner', async (req, res) => {
+  const { name, surnames } = req.body; 
+
+  if (!name || !surnames) {
+    return res.status(400).json({ error: 'El nombre y los apellidos son requeridos.' });
+  }
+
+  try {
+    const response = await axios.post(
+      'https://api.avantio.pro/pms/v2/owners',
+      {
+        language: 'es_ES',
+        name,
+        surnames: [surnames],
+      },
+      {
+        headers: {
+          'X-Avantio-Auth': process.env.AVANTIO_AUTH_TOKEN,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      }
+    );
+
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error al crear el owner en Avantio:', error.message);
+    res.status(error.response?.status || 500).json({ error: 'Error al crear el owner en Avantio' });
   }
 });
 
