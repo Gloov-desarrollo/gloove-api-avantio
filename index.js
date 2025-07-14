@@ -56,6 +56,46 @@ app.get('/bookings/:id', async (req, res) => {
   }
 });
 
+// Trae las reservas de un usuario
+app.get("/bookings/customer/:customerId", async (req, res) => {
+  const { customerId } = req.params;
+
+  try {
+    // trae todas las reservas
+    const listRes = await axios.get(`https://api.avantio.pro/pms/v2/bookings`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Avantio-Auth': process.env.AVANTIO_AUTH_TOKEN,
+      }
+    });
+    const basicBookings = listRes.data.data;
+
+    // les agrego toda la info de booking by id
+    const detailPromises = basicBookings.map(b =>
+      axios.get(`https://api.avantio.pro/pms/v2/bookings/${b.id}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Avantio-Auth': process.env.AVANTIO_AUTH_TOKEN,
+        }
+      })
+    );
+    const detailResponses = await Promise.all(detailPromises);
+    const detailedBookings = detailResponses.map(r => r.data.data);
+
+    // filtro por customerId
+    const guestBookings = detailedBookings.filter(
+      booking => booking.customer?.id === customerId
+    );
+
+    // res
+    return res.json({ data: guestBookings });
+  } catch (error) {
+    console.error("Error fetching bookings by customer:", error.message);
+    const status = error.response?.status || 500;
+    return res.status(status).json({ error: "Error fetching bookings" });
+  }
+});
+
 // Trae detalles de una propiedad
 app.get('/accommodations/:id', async (req, res) => {
   const {id} = req.params;
@@ -199,6 +239,48 @@ app.get("/get-accommodations", async (req, res) => {
   } catch (error) {
     console.error("Error fetching accommodations:", error.message);
     res.status(error.response?.status || 500).json({ error: "Error fetching accommodations" });
+  }
+});
+
+app.get("/accommodations/owner/:ownerId", async (req, res) => {
+  const { ownerId } = req.params;
+
+  try {
+    // traigo todas las propiedades
+    const response = await axios.get(
+      "https://api.avantio.pro/pms/v2/accommodations?status=ENABLED",
+      { headers: { "X-Avantio-Auth": AVANTIO_AUTH_TOKEN } }
+    );
+    const accommodations = response.data.data;
+
+    // le agrego la data extra
+    const enriched = await Promise.all(
+      accommodations.map(async (acc) => {
+        const additional = await fetchAdditionalData(acc._links);
+        // El owner real está en additional.self.data.owner
+        const owner = additional.self?.data?.owner || null;
+        return {
+          ...acc,
+          owner,                 
+          self: additional.self,
+          availabilities: additional.availabilities,
+          gallery: additional.gallery,
+          occupationRule: additional.occupationRule,
+        };
+      })
+    );
+
+    // filtro por owner id
+    const filtered = enriched.filter(
+      (acc) => acc.owner && acc.owner.id === ownerId
+    );
+
+    // res
+    res.json({ data: filtered });
+  } catch (err) {
+    console.error("Error fetching accommodations by owner:", err.message);
+    const status = err.response?.status || 500;
+    res.status(status).json({ error: "Error fetching accommodations" });
   }
 });
 
