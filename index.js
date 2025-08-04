@@ -194,7 +194,7 @@ app.get('/accommodations-add/:id', async (req, res) => {
 });
 
 // Trae la tarifa (rate) de un alojamiento por su ID
-app.get('/accommodations/:id/rate', async (req, res) => {
+app.get('/accommodations/rate/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const response = await axios.get(
