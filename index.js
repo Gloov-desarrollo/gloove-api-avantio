@@ -348,6 +348,28 @@ app.post('/create-owner', async (req, res) => {
   }
 });
 
+// Trae la tarifa (rate) de un alojamiento por su ID
+app.get('/accommodations/:id/rate', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const response = await axios.get(
+      `https://api.avantio.pro/pms/v2/accommodations/${id}/rate`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Avantio-Auth': process.env.AVANTIO_AUTH_TOKEN,
+          'accept': 'application/json'
+        },
+      }
+    );
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching accommodation rate:', error.message);
+    const status = error.response?.status || 500;
+    res.status(status).json({ error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
