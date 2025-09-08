@@ -227,34 +227,55 @@ app.post('/set-booking', async (req, res) => {
 
 // Treae los datos adicionales de los alojamientos
 app.get("/get-accommodations", async (req, res) => {
-  const API_BASE_URL = "https://api.avantio.pro/pms/v2/accommodations?status=ENABLED";
+  const BASE_URL = "https://api.avantio.pro/pms/v2/accommodations?status=ENABLED";
 
-  const paginationSize = parseInt(req.query.pagination_size) || 20; 
-  if (paginationSize > 100) {
-    return res.status(400).json({ error: "Pagination size must be less than 100" });
-  }
-  if(paginationSize < 10){
-    return res.status(400).json({ error: "Pagination size must be greater than 10" });
-  }
+  const paginationSize = Math.min(100, Math.max(10, parseInt(req.query.pagination_size) || 20));
+  const targetPage = Math.max(1, parseInt(req.query.page) || 1);
+  const headers = { "X-Avantio-Auth": AVANTIO_AUTH_TOKEN };
+
   try {
-    // Consulta lista de alojamientos
-    const response = await axios.get(API_BASE_URL, {
-      headers: { 'X-Avantio-Auth': AVANTIO_AUTH_TOKEN },
-      params: { pagination_size: paginationSize }
-    });
+    const fetchUrl = async (url) => {
+      const isBase = url === BASE_URL;
+      const { data } = await axios.get(url, {
+        headers,
+        params: isBase ? { pagination_size: paginationSize } : undefined,
+      });
+      return data;
+    };
 
-    // Desestructuro los datos
-    const accommodations = response.data.data; 
+    let data = await fetchUrl(BASE_URL);
+    let currentPage = 1;
 
-    // recorro cada alojamiento y le agrego la info adicional de la función fetchAdditionalData
-    const enrichedAccommodations = await Promise.all(accommodations.map(async (accommodation) => {
-      const additionalData = await fetchAdditionalData(accommodation._links);
-      return { ...accommodation, ...additionalData };
-    }));
+    while (currentPage < targetPage) {
+      const nextHref = data?._links?.next?.href;
+      if (!nextHref) break; 
+      data = await fetchUrl(nextHref);
+      currentPage += 1;
+    }
+
+    const accommodations = data?.data || [];
+
+    const enrichedAccommodations = await Promise.all(
+      accommodations.map(async (acc) => {
+        const additionalData = await fetchAdditionalData(acc._links);
+        return { ...acc, ...additionalData };
+      })
+    );
+
+    const lastHref = data?._links?.last?.href;
+    const totalPages = lastHref
+      ? (new URL(lastHref)).searchParams.get("page") ? parseInt((new URL(lastHref)).searchParams.get("page"), 10) : undefined
+      : undefined;
 
     res.json({
       data: enrichedAccommodations,
-      pagination: {paginationSize}
+      pagination: {
+        page: currentPage,
+        pageSize: paginationSize,
+        hasPrev: !!data?._links?.prev,
+        hasNext: !!data?._links?.next,
+        totalPages: Number.isFinite(totalPages) ? totalPages : undefined,
+      },
     });
 
   } catch (error) {
