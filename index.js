@@ -264,25 +264,22 @@ app.get("/get-accommodations", async (req, res) => {
       if (typeParam) queryParams.type = typeParam;
     }
 
-    if (req.query.status) {
-      const statusParam = Array.isArray(req.query.status)
-        ? req.query.status.join(",")
-        : String(req.query.status).trim();
-      if (statusParam) queryParams.status = statusParam;
-    }
-
     // ¿Hay cursor?
-    const hasCursor = typeof queryParams.pagination_cursor === "string" && queryParams.pagination_cursor.length > 0;
+    const hasCursor =
+      typeof queryParams.pagination_cursor === "string" &&
+      queryParams.pagination_cursor.length > 0;
 
-    // IMPORTANTE: si hay cursor, ignoramos cualquier otro parámetro hacia Avantio
+    // IMPORTANTE:
+    // - Si hay cursor, solo mandamos el cursor (Avantio ignora otros params).
+    // - Si NO hay cursor, forzamos status='ENABLED' SIEMPRE.
     const avantioParams = hasCursor
       ? { pagination_cursor: queryParams.pagination_cursor }
       : {
-        pagination_size: pageSize,
-        ...(queryParams.sort && { sort: queryParams.sort }),
-        ...(queryParams.type && { type: queryParams.type }),
-        ...(queryParams.status && { status: queryParams.status }),
-      };
+          pagination_size: pageSize,
+          status: "ENABLED", // <- FORZADO
+          ...(queryParams.sort && { sort: queryParams.sort }),
+          ...(queryParams.type && { type: queryParams.type }),
+        };
 
     console.log("Avantio API call:", {
       url: BASE_URL,
@@ -309,8 +306,16 @@ app.get("/get-accommodations", async (req, res) => {
     const accommodations = Array.isArray(responseData.data) ? responseData.data : [];
     const avantioLinks = responseData._links || {};
 
+    // --- FILTRO HARD por ENABLED del lado servidor (doble seguridad) ---
+    const isEnabled = (acc) =>
+      (acc?.status && String(acc.status).toUpperCase() === "ENABLED") ||
+      (acc?.metadata?.status && String(acc.metadata.status).toUpperCase() === "ENABLED");
+
+    const enabledOnly = accommodations.filter(isEnabled);
+
     console.log("Avantio response received:", {
       accommodationsCount: accommodations.length,
+      enabledCount: enabledOnly.length,
       hasNextLink: Boolean(avantioLinks.next),
       hasPrevLink: Boolean(avantioLinks.prev),
       timestamp: new Date().toISOString(),
@@ -318,7 +323,7 @@ app.get("/get-accommodations", async (req, res) => {
 
     // === ENRIQUECER DATOS DE CADA ALOJAMIENTO ===
     const enrichedAccommodations = await Promise.allSettled(
-      accommodations.map(async (accommodation) => {
+      enabledOnly.map(async (accommodation) => {
         const enrichedData = { ...accommodation };
         const links = accommodation._links || {};
 
@@ -392,16 +397,17 @@ app.get("/get-accommodations", async (req, res) => {
 
     // Stats de enriquecimiento
     const enrichmentStats = {
-      total: accommodations.length,
+      total: enabledOnly.length,
       successful: finalAccommodations.length,
-      failed: accommodations.length - finalAccommodations.length,
+      failed: enabledOnly.length - finalAccommodations.length,
       enrichedFields: {},
     };
 
     finalAccommodations.forEach((acc) => {
       ["availabilities", "gallery", "occupationRule", "rate"].forEach((field) => {
         if (acc[field]) {
-          enrichmentStats.enrichedFields[field] = (enrichmentStats.enrichedFields[field] || 0) + 1;
+          enrichmentStats.enrichedFields[field] =
+            (enrichmentStats.enrichedFields[field] || 0) + 1;
         }
       });
     });
@@ -465,20 +471,20 @@ app.get("/get-accommodations", async (req, res) => {
           prev_cursor: prevCursor,
         },
         enrichment: {
-          total_requested: accommodations.length,
+          total_requested: enabledOnly.length,
           successfully_enriched: finalAccommodations.length,
-          failed_enrichments: accommodations.length - finalAccommodations.length,
+          failed_enrichments: enabledOnly.length - finalAccommodations.length,
           fields_enriched: enrichmentStats.enrichedFields,
         },
         // Filtros aplicados (solo relevantes si NO hay cursor)
         filters_applied: hasCursor
           ? {}
           : {
-            ...(queryParams.type && { type: queryParams.type }),
-            ...(queryParams.status && { status: queryParams.status }),
-            ...(queryParams.sort && { sort: queryParams.sort }),
-            ...(pageSize && { pagination_size: pageSize }),
-          },
+              ...(queryParams.type && { type: queryParams.type }),
+              status: "ENABLED",
+              ...(queryParams.sort && { sort: queryParams.sort }),
+              ...(pageSize && { pagination_size: pageSize }),
+            },
       },
       _links: navigationLinks,
       timestamp: new Date().toISOString(),
@@ -489,7 +495,7 @@ app.get("/get-accommodations", async (req, res) => {
       hasNext: finalResponse.meta.pagination.has_next,
       hasPrev: finalResponse.meta.pagination.has_prev,
       appliedFilters: Object.keys(finalResponse.meta.filters_applied || {}).length,
-      enrichmentSuccess: `${finalAccommodations.length}/${accommodations.length}`,
+      enrichmentSuccess: `${finalAccommodations.length}/${enabledOnly.length}`,
       nextCursorPreview: nextCursor ? nextCursor.substring(0, 24) + "..." : null,
       prevCursorPreview: prevCursor ? prevCursor.substring(0, 24) + "..." : null,
     });
@@ -538,14 +544,21 @@ app.get("/get-accommodations", async (req, res) => {
         status,
         avantioError: error?.response?.data,
         requestUrl: BASE_URL,
-        forwardedParams: (typeof req.query?.pagination_cursor === "string" && req.query.pagination_cursor.length > 0)
+        forwardedParams: hasCursor
           ? { pagination_cursor: String(req.query.pagination_cursor) }
           : {
-            pagination_size: Math.min(100, Math.max(10, parseInt(req.query.pagination_size, 10) || 20)),
-            ...(req.query.sort ? { sort: String(req.query.sort).trim() } : {}),
-            ...(req.query.type ? { type: Array.isArray(req.query.type) ? req.query.type.join(",") : String(req.query.type).trim() } : {}),
-            ...(req.query.status ? { status: Array.isArray(req.query.status) ? req.query.status.join(",") : String(req.query.status).trim() } : {}),
-          },
+              pagination_size: pageSize,
+              // status forzado (visible en dev para debug)
+              status: "ENABLED",
+              ...(req.query.sort ? { sort: String(req.query.sort).trim() } : {}),
+              ...(req.query.type
+                ? {
+                    type: Array.isArray(req.query.type)
+                      ? req.query.type.join(",")
+                      : String(req.query.type).trim(),
+                  }
+                : {}),
+            },
       };
     }
 
