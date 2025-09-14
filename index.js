@@ -275,11 +275,11 @@ app.get("/get-accommodations", async (req, res) => {
     const avantioParams = hasCursor
       ? { pagination_cursor: queryParams.pagination_cursor }
       : {
-          pagination_size: pageSize,
-          status: "ENABLED", // <- FORZADO
-          ...(queryParams.sort && { sort: queryParams.sort }),
-          ...(queryParams.type && { type: queryParams.type }),
-        };
+        pagination_size: pageSize,
+        status: "ENABLED", // <- FORZADO
+        ...(queryParams.sort && { sort: queryParams.sort }),
+        ...(queryParams.type && { type: queryParams.type }),
+      };
 
     console.log("Avantio API call:", {
       url: BASE_URL,
@@ -343,6 +343,15 @@ app.get("/get-accommodations", async (req, res) => {
 
         // Consumir links adicionales en paralelo
         const additionalDataPromises = [];
+
+        if (links.self) {
+          additionalDataPromises.push(
+            fetchAdditionalData(links.self, "details").then((data) => ({
+              key: "details",
+              data,
+            }))
+          );
+        }
 
         if (links.availabilities) {
           additionalDataPromises.push(
@@ -480,11 +489,11 @@ app.get("/get-accommodations", async (req, res) => {
         filters_applied: hasCursor
           ? {}
           : {
-              ...(queryParams.type && { type: queryParams.type }),
-              status: "ENABLED",
-              ...(queryParams.sort && { sort: queryParams.sort }),
-              ...(pageSize && { pagination_size: pageSize }),
-            },
+            ...(queryParams.type && { type: queryParams.type }),
+            status: "ENABLED",
+            ...(queryParams.sort && { sort: queryParams.sort }),
+            ...(pageSize && { pagination_size: pageSize }),
+          },
       },
       _links: navigationLinks,
       timestamp: new Date().toISOString(),
@@ -547,18 +556,18 @@ app.get("/get-accommodations", async (req, res) => {
         forwardedParams: hasCursor
           ? { pagination_cursor: String(req.query.pagination_cursor) }
           : {
-              pagination_size: pageSize,
-              // status forzado (visible en dev para debug)
-              status: "ENABLED",
-              ...(req.query.sort ? { sort: String(req.query.sort).trim() } : {}),
-              ...(req.query.type
-                ? {
-                    type: Array.isArray(req.query.type)
-                      ? req.query.type.join(",")
-                      : String(req.query.type).trim(),
-                  }
-                : {}),
-            },
+            pagination_size: pageSize,
+            // status forzado (visible en dev para debug)
+            status: "ENABLED",
+            ...(req.query.sort ? { sort: String(req.query.sort).trim() } : {}),
+            ...(req.query.type
+              ? {
+                type: Array.isArray(req.query.type)
+                  ? req.query.type.join(",")
+                  : String(req.query.type).trim(),
+              }
+              : {}),
+          },
       };
     }
 
