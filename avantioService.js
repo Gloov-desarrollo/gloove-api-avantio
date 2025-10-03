@@ -56,6 +56,8 @@ class AvantioService {
             SendMailToTourist: "FALSE",
           }
         };
+
+        console.log("params que se envian", params)
       
         return new Promise((resolve, reject) => {
           this.client?.SetBooking(params, (err, result) => {

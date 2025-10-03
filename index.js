@@ -218,7 +218,9 @@ app.get('/accommodations/rate/:id', async (req, res) => {
 app.post('/set-booking', async (req, res) => {
   try {
     const data = req.body;
+    console.log("Prueba set booking, payload", data)
     const result = await avantioService.setBooking(data);
+    console.log("Result", result)
     res.json(result);
   } catch (error) {
     res.status(error.response?.status || 500).send(error.message);
@@ -680,6 +682,138 @@ app.post('/create-owner', async (req, res) => {
     res.status(error.response?.status || 500).json({ error: 'Error al crear el owner en Avantio' });
   }
 });
+
+// Proxy de occupation rules por alojamiento con soporte de paginación y "all=true"
+app.get('/accommodations/:id/occupation-rule', async (req, res) => {
+  const { id } = req.params;
+
+  // Query params
+  const {
+    pagination_cursor,
+    pagination_size,
+    all,                // "true" para traer todas las páginas
+    max_pages           // límite de seguridad al paginar
+  } = req.query;
+
+  const BASE_ORIGIN = "https://api.avantio.pro";
+  const AVANTIO_URL = `${BASE_ORIGIN}/pms/v2/accommodations/${id}/occupation-rule`;
+  const headers = {
+    'X-Avantio-Auth': process.env.AVANTIO_AUTH_TOKEN,
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+  };
+
+  // Helper para llamar una página
+  const fetchPage = async (cursor) => {
+    const params = {};
+    if (cursor) {
+      params.pagination_cursor = String(cursor);
+    } else {
+      // Solo aplicamos size si NO hay cursor (igual que en tus otros endpoints)
+      const requestedSize = parseInt(pagination_size, 10);
+      const pageSize = Math.min(100, Math.max(10, isNaN(requestedSize) ? 20 : requestedSize));
+      params.pagination_size = pageSize;
+    }
+
+    const resp = await axios.get(AVANTIO_URL, { headers, params, timeout: 30000 });
+    return resp.data;
+  };
+
+  try {
+    // Modo traer TODO (all=true): iteramos cursores y acumulamos seasons
+    if (String(all).toLowerCase() === 'true') {
+      const hardMaxPages = Math.max(1, Math.min(1000, parseInt(max_pages, 10) || 50)); // guardrail
+      let cursor = pagination_cursor || undefined;
+      let pages = 0;
+
+      // Estructura base acumulada
+      let aggregated = null; // la inicializaremos con la primera respuesta
+      let seasons = [];      // acumulador de seasons
+
+      while (pages < hardMaxPages) {
+        const pageData = await fetchPage(cursor);
+
+        // Inicializamos el “marco” con la primera respuesta
+        if (!aggregated) {
+          aggregated = { ...pageData };
+          // Normalizamos data.seasons si viniera vacía o ausente
+          if (!aggregated?.data?.seasons) {
+            if (!aggregated.data) aggregated.data = {};
+            aggregated.data.seasons = [];
+          }
+        }
+
+        // Acumular seasons de esta página (si existen)
+        const pageSeasons = pageData?.data?.seasons || [];
+        seasons = seasons.concat(pageSeasons);
+
+        // ¿Hay siguiente cursor?
+        const nextLink = pageData?._links?.next;
+        if (!nextLink) break;
+
+        try {
+          // Extraer cursor del link de Avantio
+          const u = new URL(typeof nextLink === 'string' ? nextLink : nextLink.href);
+          cursor = u.searchParams.get('pagination_cursor');
+        } catch {
+          cursor = null;
+        }
+
+        if (!cursor) break;
+        pages++;
+      }
+
+      // Volcamos seasons acumuladas a la respuesta final
+      aggregated.data.seasons = seasons;
+
+      // Limpiamos los links para que el cliente sepa que ya está todo
+      aggregated._links = {
+        self: { href: `${req.protocol}://${req.get('host')}${req.originalUrl}` }
+      };
+
+      return res.json(aggregated);
+    }
+
+    // Modo página única (respeta pagination_cursor si viene)
+    const onePage = await fetchPage(pagination_cursor);
+    return res.json(onePage);
+
+  } catch (error) {
+    console.error('Error fetching occupation rules:', {
+      message: error.message,
+      status: error?.response?.status,
+      data: error?.response?.data,
+    });
+
+    const status = error?.response?.status || 500;
+    const out = {
+      error: 'Error fetching occupation rules',
+      message: error?.response?.data?.message || error.message || 'Internal server error',
+    };
+
+    if (status === 400) {
+      out.error = 'Invalid request parameters';
+      if (error?.response?.data?.details?.pagination_cursor) {
+        out.message = 'Invalid pagination cursor. Start without pagination_cursor.';
+      }
+    } else if (status === 401) {
+      out.error = 'Authentication failed';
+      out.message = 'Invalid or expired authentication token';
+    } else if (status === 403) {
+      out.error = 'Access forbidden';
+      out.message = 'Insufficient permissions';
+    } else if (status === 429) {
+      out.error = 'Rate limit';
+      out.message = 'Too many requests to Avantio. Try again shortly.';
+    } else if (status >= 500) {
+      out.error = 'Server error';
+      out.message = 'Avantio API is currently unavailable';
+    }
+
+    return res.status(status).json(out);
+  }
+});
+
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
